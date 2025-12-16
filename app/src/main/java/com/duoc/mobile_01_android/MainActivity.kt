@@ -10,12 +10,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.duoc.mobile_01_android.ui.navigation.AppNavigation
-import com.duoc.mobile_01_android.ui.screens.HomeScreen
-import com.duoc.mobile_01_android.ui.theme.Mobile_01_androidTheme
-import com.duoc.mobile_01_android.viewmodel.MainViewModel
+import com.duoc.mobile_01_android.presentation.navigation.AppNavigation
+import com.duoc.mobile_01_android.presentation.theme.Mobile_01_androidTheme
 
+/**
+ * Activity principal de la aplicación de veterinaria.
+ * Configurada con MVVM completo y arquitectura clean.
+ */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,8 +36,9 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun VeterinariaApp() {
-    val viewModel: MainViewModel = viewModel()
-    AppNavigation(viewModel = viewModel)
+    // AppNavigation ahora usa ServiceLocator internamente
+    // No necesitamos pasar ViewModels manualmente
+    AppNavigation()
 }
 
 @Preview(showBackground = true)
