@@ -6,9 +6,11 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import com.duoc.mobile_01_android.MainActivity
 import com.duoc.mobile_01_android.R
 
@@ -132,13 +134,24 @@ class ReminderService : Service() {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Servicio de Recordatorios Activo")
             .setContentText("La aplicación está monitoreando tus consultas veterinarias")
-            .setSmallIcon(R.drawable.ic_launcher_foreground) // Icono de mascota
+            .setSmallIcon(R.drawable.ic_notification) // Icono de mascota para notificaciones
             .setContentIntent(pendingIntent)
             .setOngoing(true) // La notificación no se puede deslizar para descartar
             .setPriority(NotificationCompat.PRIORITY_LOW) // Prioridad baja para Android 7.1 y anteriores
             .build()
 
         // Iniciar el servicio en primer plano con la notificación
-        startForeground(NOTIFICATION_ID, notification)
+        // Usar ServiceCompat para compatibilidad con diferentes versiones de Android
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            // Android 14+ requiere especificar el tipo de servicio
+            ServiceCompat.startForeground(
+                this,
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
     }
 }

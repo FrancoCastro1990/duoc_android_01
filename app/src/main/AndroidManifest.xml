@@ -4,6 +4,7 @@
     <!-- Permisos requeridos para los componentes -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
@@ -23,8 +24,18 @@
             android:theme="@style/Theme.Mobile_01_android">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Intent Filter para Deep Links - permite abrir la app desde enlaces externos -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <!-- Esquema personalizado: veterinaria://open/consultas -->
+                <data
+                    android:scheme="veterinaria"
+                    android:host="open" />
             </intent-filter>
         </activity>
 
@@ -39,7 +50,11 @@
         <service
             android:name=".service.ReminderService"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Servicio de recordatorios de consultas veterinarias para notificar al usuario" />
+        </service>
 
         <!-- VeterinariaProvider - Content Provider de solo lectura -->
         <provider

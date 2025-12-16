@@ -4,6 +4,14 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,13 +22,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.MedicalServices
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -39,10 +52,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.duoc.mobile_01_android.presentation.components.AppTopBar
 import com.duoc.mobile_01_android.presentation.components.VeterinariaLogo
+import com.duoc.mobile_01_android.service.ReminderService
 import kotlinx.coroutines.delay
 
 /**
@@ -55,11 +70,81 @@ fun HomeScreen(
     onNavigate: (String) -> Unit
 ) {
     var isVisible by remember { mutableStateOf(false) }
+    var isServiceRunning by remember { mutableStateOf(false) }
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+
+    // Launcher para solicitar permiso de notificaciones (Android 13+)
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // Permiso concedido, iniciar el servicio
+            val intent = Intent(context, ReminderService::class.java).apply {
+                action = ReminderService.ACTION_START
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+            isServiceRunning = true
+        } else {
+            Toast.makeText(
+                context,
+                "Se requiere permiso de notificaciones para el servicio",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
 
     LaunchedEffect(Unit) {
         delay(100)
         isVisible = true
+    }
+
+    // Función para iniciar el servicio de recordatorios
+    fun startReminderService() {
+        // Verificar permiso de notificaciones en Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            when {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED -> {
+                    // Permiso ya concedido
+                    val intent = Intent(context, ReminderService::class.java).apply {
+                        action = ReminderService.ACTION_START
+                    }
+                    context.startForegroundService(intent)
+                    isServiceRunning = true
+                }
+                else -> {
+                    // Solicitar permiso
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
+        } else {
+            // Android 12 o inferior, no necesita permiso runtime
+            val intent = Intent(context, ReminderService::class.java).apply {
+                action = ReminderService.ACTION_START
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+            isServiceRunning = true
+        }
+    }
+
+    // Función para detener el servicio de recordatorios
+    fun stopReminderService() {
+        val intent = Intent(context, ReminderService::class.java).apply {
+            action = ReminderService.ACTION_STOP
+        }
+        context.startService(intent)
+        isServiceRunning = false
     }
 
     Scaffold(
@@ -79,7 +164,8 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(16.dp),
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
@@ -231,6 +317,98 @@ fun HomeScreen(
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Sección de Servicio de Recordatorios
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isServiceRunning)
+                            MaterialTheme.colorScheme.tertiaryContainer
+                        else
+                            MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (isServiceRunning)
+                                    Icons.Default.NotificationsActive
+                                else
+                                    Icons.Default.NotificationsOff,
+                                contentDescription = null,
+                                tint = if (isServiceRunning)
+                                    MaterialTheme.colorScheme.onTertiaryContainer
+                                else
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Servicio de Recordatorios",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isServiceRunning)
+                                    MaterialTheme.colorScheme.onTertiaryContainer
+                                else
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = if (isServiceRunning)
+                                "El servicio está activo. Verás una notificación persistente."
+                            else
+                                "Activa el servicio para recibir recordatorios de consultas.",
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
+                            color = if (isServiceRunning)
+                                MaterialTheme.colorScheme.onTertiaryContainer
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Button(
+                            onClick = {
+                                if (isServiceRunning) {
+                                    stopReminderService()
+                                } else {
+                                    startReminderService()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isServiceRunning)
+                                    MaterialTheme.colorScheme.error
+                                else
+                                    MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Icon(
+                                imageVector = if (isServiceRunning)
+                                    Icons.Default.NotificationsOff
+                                else
+                                    Icons.Default.NotificationsActive,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isServiceRunning) "Detener Servicio" else "Iniciar Servicio"
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
