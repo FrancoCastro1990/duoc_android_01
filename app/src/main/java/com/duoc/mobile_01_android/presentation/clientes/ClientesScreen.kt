@@ -17,9 +17,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.AlertDialog
@@ -68,7 +70,9 @@ fun ClientesScreen(
     var nombre by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var telefono by remember { mutableStateOf("") }
+    var nombreError by remember { mutableStateOf<String?>(null) }
     var emailError by remember { mutableStateOf<String?>(null) }
+    var telefonoError by remember { mutableStateOf<String?>(null) }
 
     val isLoading by viewModel.isLoading.collectAsState()
     val loadingMessage by viewModel.loadingMessage.collectAsState()
@@ -83,7 +87,9 @@ fun ClientesScreen(
         nombre = ""
         email = ""
         telefono = ""
+        nombreError = null
         emailError = null
+        telefonoError = null
         editingCliente = null
     }
 
@@ -95,14 +101,37 @@ fun ClientesScreen(
         showDialog = true
     }
 
-    fun validateEmail(): Boolean {
-        return if (!ValidationUtils.validarEmail(email)) {
-            emailError = "Email invalido"
-            false
-        } else {
-            emailError = null
-            true
+    fun validateNombre(value: String) {
+        nombreError = when {
+            value.isEmpty() -> "El nombre es requerido"
+            value.length < 3 -> "Mínimo 3 caracteres"
+            else -> null
         }
+    }
+
+    fun validateEmail(value: String) {
+        emailError = when {
+            value.isEmpty() -> "El email es requerido"
+            !ValidationUtils.validarEmail(value) -> "Formato de email inválido"
+            else -> null
+        }
+    }
+
+    fun validateTelefono(value: String) {
+        val soloDigitos = value.filter { it.isDigit() }
+        telefonoError = when {
+            soloDigitos.length < 9 -> "Mínimo 9 dígitos"
+            else -> null
+        }
+    }
+
+    fun isFormValid(): Boolean {
+        return nombre.isNotBlank() &&
+                email.isNotBlank() &&
+                telefono.isNotBlank() &&
+                nombreError == null &&
+                emailError == null &&
+                telefonoError == null
     }
 
     Scaffold(
@@ -217,9 +246,28 @@ fun ClientesScreen(
                     Column {
                         OutlinedTextField(
                             value = nombre,
-                            onValueChange = { nombre = it },
+                            onValueChange = {
+                                nombre = it
+                                validateNombre(it)
+                            },
                             label = { Text("Nombre completo") },
                             leadingIcon = { Icon(Icons.Default.Person, null) },
+                            trailingIcon = {
+                                when {
+                                    nombreError != null -> Icon(
+                                        Icons.Default.Error,
+                                        contentDescription = "Error",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                    nombre.isNotBlank() -> Icon(
+                                        Icons.Default.CheckCircle,
+                                        contentDescription = "Válido",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            },
+                            isError = nombreError != null,
+                            supportingText = nombreError?.let { { Text(it) } },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
@@ -230,14 +278,28 @@ fun ClientesScreen(
                             value = email,
                             onValueChange = {
                                 email = it
-                                emailError = null
+                                validateEmail(it)
                             },
                             label = { Text("Email") },
                             leadingIcon = { Icon(Icons.Default.Email, null) },
-                            modifier = Modifier.fillMaxWidth(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                            trailingIcon = {
+                                when {
+                                    emailError != null -> Icon(
+                                        Icons.Default.Error,
+                                        contentDescription = "Error",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                    email.isNotBlank() && emailError == null -> Icon(
+                                        Icons.Default.CheckCircle,
+                                        contentDescription = "Válido",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            },
                             isError = emailError != null,
                             supportingText = emailError?.let { { Text(it) } },
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                             singleLine = true
                         )
 
@@ -245,9 +307,28 @@ fun ClientesScreen(
 
                         OutlinedTextField(
                             value = telefono,
-                            onValueChange = { telefono = it.filter { c -> c.isDigit() || c == '+' || c == ' ' } },
+                            onValueChange = {
+                                telefono = it.filter { c -> c.isDigit() || c == '+' || c == ' ' }
+                                validateTelefono(telefono)
+                            },
                             label = { Text("Telefono") },
                             leadingIcon = { Icon(Icons.Default.Phone, null) },
+                            trailingIcon = {
+                                when {
+                                    telefonoError != null -> Icon(
+                                        Icons.Default.Error,
+                                        contentDescription = "Error",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                    telefono.isNotBlank() && telefonoError == null -> Icon(
+                                        Icons.Default.CheckCircle,
+                                        contentDescription = "Válido",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            },
+                            isError = telefonoError != null,
+                            supportingText = telefonoError?.let { { Text(it) } },
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                             singleLine = true
@@ -257,7 +338,12 @@ fun ClientesScreen(
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            if (validateEmail()) {
+                            // Validar todos los campos antes de guardar
+                            validateNombre(nombre)
+                            validateEmail(email)
+                            validateTelefono(telefono)
+
+                            if (isFormValid()) {
                                 val cliente = Cliente(
                                     id = editingCliente?.id ?: 0,
                                     nombre = nombre,
@@ -273,7 +359,7 @@ fun ClientesScreen(
                                 resetForm()
                             }
                         },
-                        enabled = nombre.isNotBlank() && email.isNotBlank()
+                        enabled = nombre.isNotBlank() && email.isNotBlank() && telefono.isNotBlank()
                     ) {
                         Text("Guardar")
                     }
