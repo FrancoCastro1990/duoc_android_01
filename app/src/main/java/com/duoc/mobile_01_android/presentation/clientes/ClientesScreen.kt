@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -49,7 +50,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.duoc.mobile_01_android.domain.model.Cliente
 import com.duoc.mobile_01_android.presentation.components.AppTopBar
+import com.duoc.mobile_01_android.presentation.components.ErrorCard
+import com.duoc.mobile_01_android.presentation.components.ErrorSnackbar
 import com.duoc.mobile_01_android.presentation.components.LoadingIndicator
+import com.duoc.mobile_01_android.presentation.components.SearchBar
 import com.duoc.mobile_01_android.util.ValidationUtils
 import kotlinx.coroutines.delay
 
@@ -60,8 +64,10 @@ import kotlinx.coroutines.delay
 @Composable
 fun ClientesScreen(
     viewModel: ClientesViewModel,
+    userRole: com.duoc.mobile_01_android.domain.model.Rol = com.duoc.mobile_01_android.domain.model.Rol.ADMIN,
     onNavigate: (String) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onLogout: () -> Unit = {}
 ) {
     var isVisible by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
@@ -77,6 +83,8 @@ fun ClientesScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val loadingMessage by viewModel.loadingMessage.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
 
     LaunchedEffect(Unit) {
         delay(100)
@@ -139,8 +147,10 @@ fun ClientesScreen(
             AppTopBar(
                 title = "Clientes",
                 showBackButton = true,
+                userRole = userRole,
                 onBackClick = onBack,
-                onNavigate = onNavigate
+                onNavigate = onNavigate,
+                onLogout = onLogout
             )
         },
         floatingActionButton = {
@@ -175,6 +185,14 @@ fun ClientesScreen(
                             text = "Lista de Clientes (${state.clientes.size})",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        SearchBar(
+                            query = searchQuery,
+                            onQueryChange = { viewModel.setSearchQuery(it) },
+                            placeholder = "Buscar por nombre o email..."
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -228,7 +246,19 @@ fun ClientesScreen(
                     }
                 }
                 is ClientesUiState.Error -> {
-                    // Mostrar error
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        ErrorCard(
+                            message = state.message,
+                            onRetry = { /* Retry logic if needed */ }
+                        )
+                    }
                 }
             }
         }
@@ -379,6 +409,21 @@ fun ClientesScreen(
             isLoading = isLoading,
             message = loadingMessage
         )
+
+        // Mostrar snackbar de error cuando hay un mensaje de error
+        errorMessage?.let { error ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                ErrorSnackbar(
+                    message = error,
+                    onDismiss = { viewModel.clearError() }
+                )
+            }
+        }
     }
 }
 

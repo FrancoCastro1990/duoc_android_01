@@ -55,6 +55,27 @@ class ConsultaRepositoryImpl(
         }
     }
 
+    override fun getConsultaById(id: Int): Flow<Consulta?> {
+        return dataSource.consultas.map { consultas ->
+            consultas.find { it.id == id }
+        }
+    }
+
+    override suspend fun editarConsulta(consulta: Consulta) {
+        delay(Constants.DELAY_EDITAR_CONSULTA)
+
+        // Recalcular el total con los medicamentos actualizados
+        val total = calcularTotalConsulta(consulta.medicamentos)
+        val consultaActualizada = consulta.copy(total = total)
+
+        dataSource.editarConsulta(consultaActualizada)
+    }
+
+    override suspend fun eliminarConsulta(id: Int) {
+        delay(Constants.DELAY_ELIMINAR_CONSULTA)
+        dataSource.eliminarConsulta(id)
+    }
+
     /**
      * Calcula el total de una consulta sumando el costo base más los medicamentos con descuento.
      */

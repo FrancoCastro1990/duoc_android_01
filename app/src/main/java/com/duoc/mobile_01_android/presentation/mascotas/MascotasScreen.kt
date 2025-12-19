@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -28,6 +29,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,15 +53,20 @@ import androidx.compose.ui.unit.dp
 import com.duoc.mobile_01_android.domain.model.Cliente
 import com.duoc.mobile_01_android.domain.model.Mascota
 import com.duoc.mobile_01_android.presentation.components.AppTopBar
+import com.duoc.mobile_01_android.presentation.components.ErrorCard
+import com.duoc.mobile_01_android.presentation.components.ErrorSnackbar
 import com.duoc.mobile_01_android.presentation.components.LoadingIndicator
+import com.duoc.mobile_01_android.presentation.components.SearchBar
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MascotasScreen(
     viewModel: MascotasViewModel,
+    userRole: com.duoc.mobile_01_android.domain.model.Rol = com.duoc.mobile_01_android.domain.model.Rol.ADMIN,
     onNavigate: (String) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onLogout: () -> Unit = {}
 ) {
     var isVisible by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
@@ -67,6 +74,7 @@ fun MascotasScreen(
 
     var nombre by remember { mutableStateOf("") }
     var especie by remember { mutableStateOf("") }
+    var raza by remember { mutableStateOf("") }
     var edad by remember { mutableStateOf("") }
     var peso by remember { mutableStateOf("") }
     var selectedClienteId by remember { mutableStateOf<Int?>(null) }
@@ -75,6 +83,9 @@ fun MascotasScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val loadingMessage by viewModel.loadingMessage.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val filtroEspecie by viewModel.filtroEspecie.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
 
     LaunchedEffect(Unit) {
         delay(100)
@@ -84,6 +95,7 @@ fun MascotasScreen(
     fun resetForm() {
         nombre = ""
         especie = ""
+        raza = ""
         edad = ""
         peso = ""
         selectedClienteId = null
@@ -93,6 +105,7 @@ fun MascotasScreen(
     fun loadMascotaToEdit(mascota: Mascota) {
         nombre = mascota.nombre
         especie = mascota.especie
+        raza = mascota.raza
         edad = mascota.edad.toString()
         peso = mascota.peso.toString()
         selectedClienteId = mascota.clienteId
@@ -105,8 +118,10 @@ fun MascotasScreen(
             AppTopBar(
                 title = "Mascotas",
                 showBackButton = true,
+                userRole = userRole,
                 onBackClick = onBack,
-                onNavigate = onNavigate
+                onNavigate = onNavigate,
+                onLogout = onLogout
             )
         },
         floatingActionButton = {
@@ -144,6 +159,43 @@ fun MascotasScreen(
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
+
+                        SearchBar(
+                            query = searchQuery,
+                            onQueryChange = { viewModel.setSearchQuery(it) },
+                            placeholder = "Buscar por nombre de mascota..."
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Filtros de especie
+                        if (state.especiesDisponibles.isNotEmpty()) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                // Chip "Todas"
+                                item {
+                                    FilterChip(
+                                        selected = filtroEspecie == null || filtroEspecie == "Todas",
+                                        onClick = { viewModel.setFiltroEspecie(null) },
+                                        label = { Text("Todas") }
+                                    )
+                                }
+
+                                // Chips para cada especie disponible
+                                items(state.especiesDisponibles) { especie ->
+                                    FilterChip(
+                                        selected = filtroEspecie == especie,
+                                        onClick = { viewModel.setFiltroEspecie(especie) },
+                                        label = { Text(especie) }
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
 
                         if (state.mascotas.isEmpty()) {
                             Card(
@@ -224,6 +276,16 @@ fun MascotasScreen(
 
                                     Spacer(modifier = Modifier.height(8.dp))
 
+                                    OutlinedTextField(
+                                        value = raza,
+                                        onValueChange = { raza = it },
+                                        label = { Text("Raza (opcional)") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        singleLine = true
+                                    )
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
                                     Row {
                                         OutlinedTextField(
                                             value = edad,
@@ -293,6 +355,7 @@ fun MascotasScreen(
                                             id = editingMascota?.id ?: 0,
                                             nombre = nombre,
                                             especie = especie,
+                                            raza = raza,
                                             edad = edad.toIntOrNull() ?: 0,
                                             peso = peso.toDoubleOrNull() ?: 0.0,
                                             clienteId = selectedClienteId ?: 0
@@ -322,7 +385,19 @@ fun MascotasScreen(
                     }
                 }
                 is MascotasUiState.Error -> {
-                    // Mostrar error
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        ErrorCard(
+                            message = state.message,
+                            onRetry = { /* Retry logic if needed */ }
+                        )
+                    }
                 }
             }
         }
@@ -331,6 +406,21 @@ fun MascotasScreen(
             isLoading = isLoading,
             message = loadingMessage
         )
+
+        // Mostrar snackbar de error cuando hay un mensaje de error
+        errorMessage?.let { error ->
+            androidx.compose.foundation.layout.Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                ErrorSnackbar(
+                    message = error,
+                    onDismiss = { viewModel.clearError() }
+                )
+            }
+        }
     }
 }
 
@@ -361,7 +451,15 @@ fun MascotaCard(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "${mascota.especie} - ${mascota.edad} anos - ${mascota.peso} kg",
+                    text = if (mascota.raza.isNotBlank()) {
+                        "${mascota.especie} | Raza: ${mascota.raza}"
+                    } else {
+                        mascota.especie
+                    },
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = "${mascota.edad} anos | ${mascota.peso} kg",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 cliente?.let {

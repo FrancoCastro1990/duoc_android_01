@@ -2,9 +2,13 @@ package com.duoc.mobile_01_android.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.duoc.mobile_01_android.domain.model.Cita
+import com.duoc.mobile_01_android.domain.model.Vacuna
+import com.duoc.mobile_01_android.domain.repository.CitaRepository
 import com.duoc.mobile_01_android.domain.repository.ClienteRepository
 import com.duoc.mobile_01_android.domain.repository.ConsultaRepository
 import com.duoc.mobile_01_android.domain.repository.MascotaRepository
+import com.duoc.mobile_01_android.domain.repository.VacunaRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -20,24 +24,36 @@ import kotlinx.coroutines.flow.stateIn
 class HomeViewModel(
     clienteRepository: ClienteRepository,
     mascotaRepository: MascotaRepository,
-    consultaRepository: ConsultaRepository
+    consultaRepository: ConsultaRepository,
+    citaRepository: CitaRepository,
+    vacunaRepository: VacunaRepository
 ) : ViewModel() {
 
     /**
      * Estado combinado de la pantalla Home.
      * Usa combine para crear un único Flow que agrega múltiples fuentes.
+     * Como combine solo soporta hasta 5 flows, combinamos primero algunos datos
+     * y luego los combinamos con los restantes.
      */
     val uiState: StateFlow<HomeUiState> = combine(
-        clienteRepository.getClientes(),
-        mascotaRepository.getMascotas(),
-        consultaRepository.getConsultas(),
-        consultaRepository.calcularIngresosTotales()
-    ) { clientes, mascotas, consultas, ingresosTotales ->
+        combine(
+            clienteRepository.getClientes(),
+            mascotaRepository.getMascotas(),
+            consultaRepository.getConsultas()
+        ) { clientes, mascotas, consultas ->
+            Triple(clientes.size, mascotas.size, consultas.size)
+        },
+        consultaRepository.calcularIngresosTotales(),
+        citaRepository.getCitasPendientes(),
+        vacunaRepository.getVacunasProximas()
+    ) { counts, ingresosTotales, citasPendientes, vacunasProximas ->
         HomeUiState(
-            totalClientes = clientes.size,
-            totalMascotas = mascotas.size,
-            totalConsultas = consultas.size,
-            ingresosTotales = ingresosTotales
+            totalClientes = counts.first,
+            totalMascotas = counts.second,
+            totalConsultas = counts.third,
+            ingresosTotales = ingresosTotales,
+            citasPendientes = citasPendientes,
+            vacunasProximas = vacunasProximas
         )
     }.stateIn(
         scope = viewModelScope,
@@ -54,5 +70,7 @@ data class HomeUiState(
     val totalClientes: Int = 0,
     val totalMascotas: Int = 0,
     val totalConsultas: Int = 0,
-    val ingresosTotales: Double = 0.0
+    val ingresosTotales: Double = 0.0,
+    val citasPendientes: List<Cita> = emptyList(),
+    val vacunasProximas: List<Vacuna> = emptyList()
 )

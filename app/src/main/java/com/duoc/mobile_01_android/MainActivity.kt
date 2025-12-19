@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.duoc.mobile_01_android.presentation.navigation.AppNavigation
 import com.duoc.mobile_01_android.presentation.theme.Mobile_01_androidTheme
+import com.duoc.mobile_01_android.util.NotificationHelper
 
 /**
  * Activity principal de la aplicación de veterinaria.
@@ -33,6 +34,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Crear canales de notificación para Android 8.0+
+        NotificationHelper.createChannels(this)
 
         // Manejar deep link cuando la app se abre por primera vez
         handleDeepLink(intent)

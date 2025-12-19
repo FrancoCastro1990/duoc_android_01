@@ -2,15 +2,19 @@ package com.duoc.mobile_01_android.presentation.components
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.MedicalServices
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material.icons.filled.Vaccines
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -23,6 +27,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.duoc.mobile_01_android.domain.model.Rol
 
 data class MenuItem(
     val title: String,
@@ -35,18 +40,31 @@ data class MenuItem(
 fun AppTopBar(
     title: String,
     showBackButton: Boolean = false,
+    userRole: Rol = Rol.ADMIN,
     onBackClick: () -> Unit = {},
-    onNavigate: (String) -> Unit = {}
+    onNavigate: (String) -> Unit = {},
+    onLogout: () -> Unit = {}
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    val menuItems = listOf(
-        MenuItem("Inicio", Icons.Default.Home, "home"),
-        MenuItem("Mascotas", Icons.Default.Pets, "mascotas"),
-        MenuItem("Clientes", Icons.Default.Person, "clientes"),
-        MenuItem("Consultas", Icons.Default.MedicalServices, "consultas"),
-        MenuItem("Resumen", Icons.Default.Assessment, "resumen")
-    )
+    // Definir items del menú según el rol del usuario
+    val menuItems = when (userRole) {
+        Rol.ADMIN -> listOf(
+            MenuItem("Inicio", Icons.Default.Home, "home"),
+            MenuItem("Mascotas", Icons.Default.Pets, "mascotas"),
+            MenuItem("Clientes", Icons.Default.Person, "clientes"),
+            MenuItem("Consultas", Icons.Default.MedicalServices, "consultas"),
+            MenuItem("Citas", Icons.Default.CalendarMonth, "citas"),
+            MenuItem("Vacunas", Icons.Default.Vaccines, "vacunas"),
+            MenuItem("Resumen", Icons.Default.Assessment, "resumen")
+        )
+        Rol.DUENO -> listOf(
+            MenuItem("Inicio", Icons.Default.Home, "home"),
+            MenuItem("Mis Mascotas", Icons.Default.Pets, "mascotas"),
+            MenuItem("Mis Citas", Icons.Default.CalendarMonth, "citas"),
+            MenuItem("Mis Vacunas", Icons.Default.Vaccines, "vacunas")
+        )
+    }
 
     TopAppBar(
         title = {
@@ -92,6 +110,22 @@ fun AppTopBar(
                         }
                     )
                 }
+
+                HorizontalDivider()
+
+                DropdownMenuItem(
+                    text = { Text("Cerrar Sesion") },
+                    onClick = {
+                        onLogout()
+                        expanded = false
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Logout,
+                            contentDescription = "Cerrar Sesion"
+                        )
+                    }
+                )
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(

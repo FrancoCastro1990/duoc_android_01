@@ -1,9 +1,10 @@
-package com.duoc.mobile_01_android.presentation.consultas
+package com.duoc.mobile_01_android.presentation.citas
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,63 +13,68 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.MedicalServices
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.duoc.mobile_01_android.DetalleConsultaActivity
+import com.duoc.mobile_01_android.domain.model.Cita
 import com.duoc.mobile_01_android.domain.model.Cliente
-import com.duoc.mobile_01_android.domain.model.Consulta
+import com.duoc.mobile_01_android.domain.model.EstadoCita
 import com.duoc.mobile_01_android.domain.model.Mascota
-import com.duoc.mobile_01_android.domain.model.Medicamento
 import com.duoc.mobile_01_android.presentation.components.AppTopBar
 import com.duoc.mobile_01_android.presentation.components.ErrorCard
 import com.duoc.mobile_01_android.presentation.components.ErrorSnackbar
 import com.duoc.mobile_01_android.presentation.components.LoadingIndicator
-import com.duoc.mobile_01_android.util.Constants
 import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConsultasScreen(
-    viewModel: ConsultasViewModel,
+fun CitasScreen(
+    viewModel: CitasViewModel,
     userRole: com.duoc.mobile_01_android.domain.model.Rol = com.duoc.mobile_01_android.domain.model.Rol.ADMIN,
     onNavigate: (String) -> Unit,
     onBack: () -> Unit,
@@ -76,21 +82,30 @@ fun ConsultasScreen(
 ) {
     var isVisible by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    var consultaEnEdicion by remember { mutableStateOf<Consulta?>(null) }
-    var consultaAEliminar by remember { mutableStateOf<Consulta?>(null) }
+    var citaEnEdicion by remember { mutableStateOf<Cita?>(null) }
 
+    // Campos del formulario
     var selectedCliente by remember { mutableStateOf<Cliente?>(null) }
     var selectedMascota by remember { mutableStateOf<Mascota?>(null) }
-    var descripcion by remember { mutableStateOf("") }
-    val selectedMedicamentos = remember { mutableStateListOf<Medicamento>() }
+    var fecha by remember { mutableStateOf("") }
+    var hora by remember { mutableStateOf("") }
+    var motivo by remember { mutableStateOf("") }
 
     var expandedCliente by remember { mutableStateOf(false) }
     var expandedMascota by remember { mutableStateOf(false) }
 
+    // DatePicker state
+    val datePickerState = rememberDatePickerState()
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    // TimePicker state
+    val timePickerState = rememberTimePickerState()
+    var showTimePicker by remember { mutableStateOf(false) }
+
     val isLoading by viewModel.isLoading.collectAsState()
     val loadingMessage by viewModel.loadingMessage.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
+    val estadoFiltro by viewModel.estadoFiltro.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
 
     LaunchedEffect(Unit) {
@@ -101,25 +116,26 @@ fun ConsultasScreen(
     fun resetForm() {
         selectedCliente = null
         selectedMascota = null
-        descripcion = ""
-        selectedMedicamentos.clear()
-        consultaEnEdicion = null
+        fecha = ""
+        hora = ""
+        motivo = ""
+        citaEnEdicion = null
     }
 
-    fun loadConsultaToEdit(consulta: Consulta) {
-        selectedCliente = consulta.cliente
-        selectedMascota = consulta.mascota
-        descripcion = consulta.descripcion
-        selectedMedicamentos.clear()
-        selectedMedicamentos.addAll(consulta.medicamentos)
-        consultaEnEdicion = consulta
+    fun abrirDialogoEdicion(cita: Cita, clientes: List<Cliente>, mascotas: List<Mascota>) {
+        citaEnEdicion = cita
+        selectedCliente = clientes.find { it.id == cita.clienteId }
+        selectedMascota = mascotas.find { it.id == cita.mascotaId }
+        fecha = cita.fecha
+        hora = cita.hora
+        motivo = cita.motivo
         showDialog = true
     }
 
     Scaffold(
         topBar = {
             AppTopBar(
-                title = "Consultas",
+                title = "Citas",
                 showBackButton = true,
                 userRole = userRole,
                 onBackClick = onBack,
@@ -135,7 +151,7 @@ fun ConsultasScreen(
                 },
                 containerColor = MaterialTheme.colorScheme.primary
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Nueva Consulta")
+                Icon(Icons.Default.Add, contentDescription = "Nueva Cita")
             }
         }
     ) { paddingValues ->
@@ -145,8 +161,8 @@ fun ConsultasScreen(
             exit = fadeOut(animationSpec = tween(300))
         ) {
             when (val state = uiState) {
-                is ConsultasUiState.Loading -> {}
-                is ConsultasUiState.Success -> {
+                is CitasUiState.Loading -> {}
+                is CitasUiState.Success -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -154,14 +170,51 @@ fun ConsultasScreen(
                             .padding(16.dp)
                     ) {
                         Text(
-                            text = "Lista de Consultas (${state.consultas.size})",
+                            text = "Agenda de Citas",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        if (state.consultas.isEmpty()) {
+                        // Filtros por estado
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = estadoFiltro == null,
+                                onClick = { viewModel.setFiltroEstado(null) },
+                                label = { Text("Todas") }
+                            )
+                            FilterChip(
+                                selected = estadoFiltro == EstadoCita.PENDIENTE,
+                                onClick = { viewModel.setFiltroEstado(EstadoCita.PENDIENTE) },
+                                label = { Text("Pendientes") }
+                            )
+                            FilterChip(
+                                selected = estadoFiltro == EstadoCita.COMPLETADA,
+                                onClick = { viewModel.setFiltroEstado(EstadoCita.COMPLETADA) },
+                                label = { Text("Completadas") }
+                            )
+                            FilterChip(
+                                selected = estadoFiltro == EstadoCita.CANCELADA,
+                                onClick = { viewModel.setFiltroEstado(EstadoCita.CANCELADA) },
+                                label = { Text("Canceladas") }
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = "Citas (${state.citas.size})",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        if (state.citas.isEmpty()) {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = CardDefaults.cardColors(
@@ -175,14 +228,14 @@ fun ConsultasScreen(
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.MedicalServices,
+                                        imageVector = Icons.Default.CalendarMonth,
                                         contentDescription = null,
                                         modifier = Modifier.height(48.dp),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text(
-                                        text = "No hay consultas registradas",
+                                        text = "No hay citas registradas",
                                         style = MaterialTheme.typography.bodyLarge,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -197,14 +250,16 @@ fun ConsultasScreen(
                             LazyColumn(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                items(state.consultas) { consulta ->
-                                    ConsultaCard(
-                                        consulta = consulta,
-                                        onEdit = { loadConsultaToEdit(consulta) },
-                                        onDelete = {
-                                            consultaAEliminar = consulta
-                                            showDeleteDialog = true
-                                        }
+                                items(state.citas) { cita ->
+                                    CitaCard(
+                                        cita = cita,
+                                        viewModel = viewModel,
+                                        clientes = state.clientesDisponibles,
+                                        mascotas = state.mascotasDisponibles,
+                                        onEdit = { abrirDialogoEdicion(cita, state.clientesDisponibles, state.mascotasDisponibles) },
+                                        onDelete = { viewModel.eliminarCita(cita.id) },
+                                        onCompletar = { viewModel.cambiarEstado(cita.id, EstadoCita.COMPLETADA) },
+                                        onCancelar = { viewModel.cambiarEstado(cita.id, EstadoCita.CANCELADA) }
                                     )
                                 }
                             }
@@ -217,13 +272,12 @@ fun ConsultasScreen(
                                 showDialog = false
                                 resetForm()
                             },
-                            title = {
-                                Text(if (consultaEnEdicion != null) "Editar Consulta" else "Nueva Consulta")
-                            },
+                            title = { Text(if (citaEnEdicion == null) "Nueva Cita" else "Editar Cita") },
                             text = {
                                 Column(
                                     modifier = Modifier.verticalScroll(rememberScrollState())
                                 ) {
+                                    // Dropdown Cliente
                                     ExposedDropdownMenuBox(
                                         expanded = expandedCliente,
                                         onExpandedChange = { expandedCliente = !expandedCliente }
@@ -257,6 +311,7 @@ fun ConsultasScreen(
 
                                     Spacer(modifier = Modifier.height(8.dp))
 
+                                    // Dropdown Mascota (filtrado por cliente)
                                     val mascotasFiltradas = selectedCliente?.let { cliente ->
                                         state.mascotasDisponibles.filter { it.clienteId == cliente.id }
                                     } ?: emptyList()
@@ -294,77 +349,58 @@ fun ConsultasScreen(
 
                                     Spacer(modifier = Modifier.height(8.dp))
 
+                                    // Fecha
                                     OutlinedTextField(
-                                        value = descripcion,
-                                        onValueChange = { descripcion = it },
-                                        label = { Text("Descripcion de la consulta") },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        minLines = 2,
-                                        maxLines = 4
-                                    )
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    Text(
-                                        text = "Medicamentos:",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold
-                                    )
-
-                                    state.medicamentosDisponibles.forEach { medicamento ->
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(vertical = 4.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Checkbox(
-                                                checked = selectedMedicamentos.contains(medicamento),
-                                                onCheckedChange = { checked ->
-                                                    if (checked) {
-                                                        selectedMedicamentos.add(medicamento)
-                                                    } else {
-                                                        selectedMedicamentos.remove(medicamento)
-                                                    }
-                                                }
-                                            )
-                                            Column {
-                                                Text(
-                                                    text = "${medicamento.nombre} (${medicamento.dosificacion})",
-                                                    style = MaterialTheme.typography.bodyMedium
-                                                )
-                                                Text(
-                                                    text = if (medicamento.descuento > 0) {
-                                                        "$${String.format("%,.0f", medicamento.precio)} -> $${String.format("%,.0f", medicamento.precioConDescuento())} (-${(medicamento.descuento * 100).toInt()}%)"
-                                                    } else {
-                                                        "$${String.format("%,.0f", medicamento.precio)}"
-                                                    },
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = if (medicamento.descuento > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                        value = fecha,
+                                        onValueChange = { },
+                                        readOnly = true,
+                                        label = { Text("Fecha (dd/MM/yyyy)") },
+                                        placeholder = { Text("01/01/2025") },
+                                        trailingIcon = {
+                                            IconButton(onClick = { showDatePicker = true }) {
+                                                Icon(
+                                                    imageVector = Icons.Default.CalendarMonth,
+                                                    contentDescription = "Seleccionar fecha"
                                                 )
                                             }
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    HorizontalDivider()
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { showDatePicker = true }
+                                    )
 
                                     Spacer(modifier = Modifier.height(8.dp))
 
-                                    Text(
-                                        text = "Costo base consulta: $${String.format("%,.0f", Constants.COSTO_BASE_CONSULTA)}",
-                                        style = MaterialTheme.typography.bodyMedium
+                                    // Hora
+                                    OutlinedTextField(
+                                        value = hora,
+                                        onValueChange = { },
+                                        readOnly = true,
+                                        label = { Text("Hora (HH:mm)") },
+                                        placeholder = { Text("09:00") },
+                                        trailingIcon = {
+                                            IconButton(onClick = { showTimePicker = true }) {
+                                                Icon(
+                                                    imageVector = Icons.Default.AccessTime,
+                                                    contentDescription = "Seleccionar hora"
+                                                )
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { showTimePicker = true }
                                     )
-                                    Text(
-                                        text = "Total medicamentos: $${String.format("%,.0f", selectedMedicamentos.sumOf { it.precioConDescuento() })}",
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                    Text(
-                                        text = "TOTAL: $${String.format("%,.0f", viewModel.calcularTotalConsulta(selectedMedicamentos.toList()))}",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    // Motivo
+                                    OutlinedTextField(
+                                        value = motivo,
+                                        onValueChange = { motivo = it },
+                                        label = { Text("Motivo de la cita") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        minLines = 2,
+                                        maxLines = 4
                                     )
                                 }
                             },
@@ -373,23 +409,23 @@ fun ConsultasScreen(
                                     onClick = {
                                         selectedCliente?.let { cliente ->
                                             selectedMascota?.let { mascota ->
-                                                if (consultaEnEdicion != null) {
-                                                    // Editar consulta existente (mantener fecha original)
-                                                    val consultaActualizada = consultaEnEdicion!!.copy(
-                                                        cliente = cliente,
-                                                        mascota = mascota,
-                                                        medicamentos = selectedMedicamentos.toList(),
-                                                        descripcion = descripcion
-                                                        // NO actualizamos la fecha, se mantiene la original
+                                                if (citaEnEdicion == null) {
+                                                    viewModel.agregarCita(
+                                                        clienteId = cliente.id,
+                                                        mascotaId = mascota.id,
+                                                        fecha = fecha,
+                                                        hora = hora,
+                                                        motivo = motivo
                                                     )
-                                                    viewModel.editarConsulta(consultaActualizada)
                                                 } else {
-                                                    // Crear nueva consulta
-                                                    viewModel.crearConsulta(
-                                                        cliente = cliente,
-                                                        mascota = mascota,
-                                                        medicamentos = selectedMedicamentos.toList(),
-                                                        descripcion = descripcion
+                                                    viewModel.editarCita(
+                                                        citaEnEdicion!!.copy(
+                                                            clienteId = cliente.id,
+                                                            mascotaId = mascota.id,
+                                                            fecha = fecha,
+                                                            hora = hora,
+                                                            motivo = motivo
+                                                        )
                                                     )
                                                 }
                                                 showDialog = false
@@ -397,9 +433,10 @@ fun ConsultasScreen(
                                             }
                                         }
                                     },
-                                    enabled = selectedCliente != null && selectedMascota != null
+                                    enabled = selectedCliente != null && selectedMascota != null &&
+                                              fecha.isNotBlank() && hora.isNotBlank()
                                 ) {
-                                    Text(if (consultaEnEdicion != null) "Guardar Cambios" else "Crear Consulta")
+                                    Text(if (citaEnEdicion == null) "Crear" else "Guardar")
                                 }
                             },
                             dismissButton = {
@@ -413,49 +450,56 @@ fun ConsultasScreen(
                         )
                     }
 
-                    if (showDeleteDialog && consultaAEliminar != null) {
-                        AlertDialog(
-                            onDismissRequest = {
-                                showDeleteDialog = false
-                                consultaAEliminar = null
-                            },
-                            title = { Text("Eliminar Consulta") },
-                            text = {
-                                Column {
-                                    Text("¿Está seguro de eliminar la consulta #${consultaAEliminar!!.id}?")
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = "Esta acción no se puede deshacer.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                            },
+                    // DatePickerDialog
+                    if (showDatePicker) {
+                        DatePickerDialog(
+                            onDismissRequest = { showDatePicker = false },
                             confirmButton = {
-                                TextButton(
-                                    onClick = {
-                                        viewModel.eliminarConsulta(consultaAEliminar!!.id)
-                                        showDeleteDialog = false
-                                        consultaAEliminar = null
+                                TextButton(onClick = {
+                                    datePickerState.selectedDateMillis?.let { millis ->
+                                        val formatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                                        fecha = formatter.format(Date(millis))
                                     }
-                                ) {
-                                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                                    showDatePicker = false
+                                }) {
+                                    Text("Aceptar")
                                 }
                             },
                             dismissButton = {
-                                TextButton(
-                                    onClick = {
-                                        showDeleteDialog = false
-                                        consultaAEliminar = null
-                                    }
-                                ) {
+                                TextButton(onClick = { showDatePicker = false }) {
+                                    Text("Cancelar")
+                                }
+                            }
+                        ) {
+                            DatePicker(state = datePickerState)
+                        }
+                    }
+
+                    // TimePickerDialog
+                    if (showTimePicker) {
+                        AlertDialog(
+                            onDismissRequest = { showTimePicker = false },
+                            title = { Text("Seleccionar hora") },
+                            text = {
+                                TimePicker(state = timePickerState)
+                            },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    hora = String.format("%02d:%02d", timePickerState.hour, timePickerState.minute)
+                                    showTimePicker = false
+                                }) {
+                                    Text("Aceptar")
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showTimePicker = false }) {
                                     Text("Cancelar")
                                 }
                             }
                         )
                     }
                 }
-                is ConsultasUiState.Error -> {
+                is CitasUiState.Error -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -496,12 +540,24 @@ fun ConsultasScreen(
 }
 
 @Composable
-fun ConsultaCard(
-    consulta: Consulta,
+fun CitaCard(
+    cita: Cita,
+    viewModel: CitasViewModel,
+    clientes: List<Cliente>,
+    mascotas: List<Mascota>,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onCompletar: () -> Unit,
+    onCancelar: () -> Unit
 ) {
-    val context = LocalContext.current
+    val mascota = viewModel.getMascota(cita.mascotaId, mascotas)
+    val clienteNombre = viewModel.getClienteName(cita.clienteId, clientes)
+
+    val estadoColor = when (cita.estado) {
+        EstadoCita.PENDIENTE -> MaterialTheme.colorScheme.primary
+        EstadoCita.COMPLETADA -> MaterialTheme.colorScheme.tertiary
+        EstadoCita.CANCELADA -> MaterialTheme.colorScheme.error
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -516,96 +572,89 @@ fun ConsultaCard(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Consulta #${consulta.id}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = consulta.fecha,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Column {
+                    Text(
+                        text = "Cita #${cita.id}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = cita.estado.name,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = estadoColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Row {
+                    if (cita.estado == EstadoCita.PENDIENTE) {
+                        IconButton(onClick = onEdit) {
+                            Icon(Icons.Default.Edit, contentDescription = "Editar")
+                        }
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Default.Delete, contentDescription = "Eliminar")
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Cliente: ${consulta.cliente.nombre}",
+                text = "Cliente: $clienteNombre",
                 style = MaterialTheme.typography.bodyMedium
             )
-            Text(
-                text = "Mascota: ${consulta.mascota.nombre} (${consulta.mascota.especie})",
-                style = MaterialTheme.typography.bodyMedium
-            )
-
-            if (consulta.descripcion.isNotBlank()) {
+            mascota?.let {
                 Text(
-                    text = "Motivo: ${consulta.descripcion}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "Mascota: ${it.nombre} (${it.especie})",
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
-
-            if (consulta.medicamentos.isNotEmpty()) {
-                Text(
-                    text = "Medicamentos: ${consulta.medicamentos.joinToString { it.nombre }}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Total: $${String.format("%,.0f", consulta.total)}",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                TextButton(
-                    onClick = {
-                        context.startActivity(DetalleConsultaActivity.createIntent(context, consulta.id))
-                    }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Visibility,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Ver detalle")
-                }
+                Text(
+                    text = "Fecha: ${cita.fecha}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "Hora: ${cita.hora}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
-                Row {
-                    TextButton(onClick = onEdit) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "Editar",
-                            modifier = Modifier.size(20.dp)
-                        )
+            if (cita.motivo.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Motivo: ${cita.motivo}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (cita.estado == EstadoCita.PENDIENTE) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    TextButton(onClick = onCompletar) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Editar")
+                        Text("Completar")
                     }
-                    TextButton(onClick = onDelete) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Eliminar",
-                            modifier = Modifier.size(20.dp),
-                            tint = MaterialTheme.colorScheme.error
-                        )
+                    TextButton(onClick = onCancelar) {
+                        Icon(Icons.Default.Cancel, contentDescription = null)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                        Text("Cancelar")
                     }
                 }
             }

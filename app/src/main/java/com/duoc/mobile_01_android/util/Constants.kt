@@ -16,4 +16,6 @@ object Constants {
     const val DELAY_EDITAR = 800L
     const val DELAY_ELIMINAR = 500L
     const val DELAY_CREAR_CONSULTA = 1500L
+    const val DELAY_EDITAR_CONSULTA = 1000L
+    const val DELAY_ELIMINAR_CONSULTA = 500L
 }

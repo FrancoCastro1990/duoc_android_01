@@ -35,4 +35,23 @@ interface ConsultaRepository {
      * @return El total de ingresos
      */
     fun calcularIngresosTotales(): Flow<Double>
+
+    /**
+     * Obtiene una consulta por su ID.
+     * @param id El ID de la consulta a buscar
+     * @return Flow que emite la consulta si existe, null si no existe
+     */
+    fun getConsultaById(id: Int): Flow<Consulta?>
+
+    /**
+     * Edita una consulta existente.
+     * @param consulta La consulta con los datos actualizados
+     */
+    suspend fun editarConsulta(consulta: Consulta)
+
+    /**
+     * Elimina una consulta por su ID.
+     * @param id El ID de la consulta a eliminar
+     */
+    suspend fun eliminarConsulta(id: Int)
 }

@@ -5,15 +5,16 @@ Aplicacion Android nativa desarrollada en Kotlin que implementa un sistema compl
 ## Tabla de Contenidos
 
 1. [Descripcion General](#descripcion-general)
-2. [Arquitectura](#arquitectura)
-3. [Componentes de Android](#componentes-de-android)
-4. [Interfaz de Usuario](#interfaz-de-usuario)
-5. [Navegacion e Intents](#navegacion-e-intents)
-6. [Estructura del Proyecto](#estructura-del-proyecto)
-7. [Requisitos del Sistema](#requisitos-del-sistema)
-8. [Instalacion y Configuracion](#instalacion-y-configuracion)
-9. [Ejecucion de Pruebas](#ejecucion-de-pruebas)
-10. [Tecnologias Utilizadas](#tecnologias-utilizadas)
+2. [Credenciales de Acceso](#credenciales-de-acceso)
+3. [Arquitectura](#arquitectura)
+4. [Componentes de Android](#componentes-de-android)
+5. [Interfaz de Usuario](#interfaz-de-usuario)
+6. [Navegacion e Intents](#navegacion-e-intents)
+7. [Estructura del Proyecto](#estructura-del-proyecto)
+8. [Requisitos del Sistema](#requisitos-del-sistema)
+9. [Instalacion y Configuracion](#instalacion-y-configuracion)
+10. [Ejecucion de Pruebas](#ejecucion-de-pruebas)
+11. [Tecnologias Utilizadas](#tecnologias-utilizadas)
 
 ---
 
@@ -23,14 +24,33 @@ Veterinaria App es una aplicacion de gestion integral para clinicas veterinarias
 
 ### Funcionalidades Principales
 
-- Registro y gestion de clientes con validacion de datos en tiempo real
-- Administracion de mascotas asociadas a cada cliente
-- Creacion de consultas veterinarias con seleccion de medicamentos
-- Calculo automatico de costos con descuentos aplicados
-- Panel de resumen con estadisticas e ingresos totales
+- **Sistema de Autenticacion**: Login con roles (Admin/Dueno), recuperacion de contrasena
+- **Gestion de Clientes**: CRUD completo con validacion en tiempo real y busqueda
+- **Gestion de Mascotas**: CRUD con campo raza, filtros por especie y busqueda
+- **Gestion de Consultas**: CRUD completo con seleccion de medicamentos y calculo de costos
+- **Sistema de Citas**: Agenda de citas con estados (Pendiente/Completada/Cancelada)
+- **Sistema de Vacunas**: Registro de vacunacion con alertas de proximas vacunas
+- **Notificaciones Automaticas**: Confirmacion inmediata al crear citas y registrar vacunas
+- **Panel de Resumen**: Estadisticas, ingresos totales, proximas citas y alertas de vacunas
+- **Navegacion por Rol**: Admin ve todo, Dueno ve solo sus mascotas y datos relacionados
+- **Manejo de Errores**: Snackbars y dialogos de error con opcion de reintento
 - Servicio de recordatorios con notificaciones persistentes
 - Compartir informacion de consultas con aplicaciones externas
 - Deteccion de conectividad WiFi con notificaciones contextuales
+
+---
+
+## Credenciales de Acceso
+
+### Usuario Administrador
+- **Email**: `admin@vet.com`
+- **Password**: `admin123`
+- **Acceso**: Completo a todas las funcionalidades
+
+### Usuario Dueno (Cliente)
+- **Email**: Email de cualquier cliente registrado
+- **Password**: `cliente123`
+- **Acceso**: Solo sus mascotas, citas y vacunas
 
 ---
 
@@ -112,18 +132,37 @@ La interfaz esta desarrollada integramente con Jetpack Compose y Material Design
 
 | Pantalla | Descripcion |
 |----------|-------------|
-| HomeScreen | Dashboard principal con logo, accesos rapidos, resumen estadistico y control del servicio de recordatorios |
-| ClientesScreen | Gestion CRUD de clientes con validacion en tiempo real de nombre, email y telefono |
-| MascotasScreen | Administracion de mascotas con selector de cliente propietario |
-| ConsultasScreen | Creacion de consultas con seleccion de mascota, medicamentos y calculo de total |
+| LoginScreen | Inicio de sesion con validacion de credenciales y acceso a recuperar contrasena |
+| RecuperarPasswordScreen | Recuperacion de contrasena simulada con confirmacion por email |
+| HomeScreen | Dashboard con accesos rapidos, proximas citas, alertas de vacunas y control de recordatorios |
+| ClientesScreen | Gestion CRUD de clientes con validacion en tiempo real, busqueda y filtros |
+| MascotasScreen | Administracion de mascotas con campo raza, filtros por especie y busqueda |
+| ConsultasScreen | CRUD de consultas con seleccion de mascota, medicamentos y calculo de total |
+| CitasScreen | Gestion de citas con estados (Pendiente/Completada/Cancelada) y filtros |
+| VacunasScreen | Registro de vacunas con seccion de proximas vacunas y alertas |
 | ResumenScreen | Panel de estadisticas con ingresos, especies mas atendidas y ultimas consultas |
 | DetalleConsultaScreen | Vista detallada de consulta con opcion de compartir |
 
 ### Componentes Reutilizables
 
 - **VeterinariaLogo**: Componente de logo con icono circular y texto opcional
-- **AppTopBar**: Barra superior con navegacion y menu contextual
+- **AppTopBar**: Barra superior con navegacion condicional por rol y logout
 - **LoadingIndicator**: Indicadores de carga en multiples variantes
+- **SearchBar**: Barra de busqueda reutilizable con boton de limpiar
+- **ErrorDisplay**: Componentes de error (Snackbar, Dialog, Card) con reintento
+- **DatePickerDialog**: Selector de fecha Material 3 (formato dd/MM/yyyy)
+- **TimePickerDialog**: Selector de hora Material 3 (formato HH:mm, 24 horas)
+
+### Selectores de Fecha y Hora
+
+Los formularios de Citas y Vacunas utilizan componentes nativos de Material 3:
+
+| Pantalla | Campo | Componente |
+|----------|-------|------------|
+| Citas | Fecha | DatePickerDialog |
+| Citas | Hora | TimePickerDialog |
+| Vacunas | Fecha aplicacion | DatePickerDialog |
+| Vacunas | Proxima fecha | DatePickerDialog |
 
 ### Validaciones en Tiempo Real
 
@@ -185,24 +224,39 @@ com.duoc.mobile_01_android/
 |   |-- datasource/
 |   |   |-- InMemoryDataSource.kt
 |   |-- repository/
+|       |-- AuthRepositoryImpl.kt
 |       |-- ClienteRepositoryImpl.kt
 |       |-- MascotaRepositoryImpl.kt
 |       |-- ConsultaRepositoryImpl.kt
+|       |-- CitaRepositoryImpl.kt
+|       |-- VacunaRepositoryImpl.kt
 |       |-- MedicamentoRepositoryImpl.kt
 |
 |-- domain/
 |   |-- model/
+|   |   |-- Usuario.kt
+|   |   |-- SessionState.kt
 |   |   |-- Cliente.kt
 |   |   |-- Mascota.kt
 |   |   |-- Consulta.kt
+|   |   |-- Cita.kt
+|   |   |-- Vacuna.kt
 |   |   |-- Medicamento.kt
 |   |-- repository/
+|       |-- AuthRepository.kt
 |       |-- ClienteRepository.kt
 |       |-- MascotaRepository.kt
 |       |-- ConsultaRepository.kt
+|       |-- CitaRepository.kt
+|       |-- VacunaRepository.kt
 |       |-- MedicamentoRepository.kt
 |
 |-- presentation/
+|   |-- auth/
+|   |   |-- LoginScreen.kt
+|   |   |-- LoginViewModel.kt
+|   |   |-- RecuperarPasswordScreen.kt
+|   |   |-- RecuperarPasswordViewModel.kt
 |   |-- home/
 |   |   |-- HomeScreen.kt
 |   |   |-- HomeViewModel.kt
@@ -215,6 +269,12 @@ com.duoc.mobile_01_android/
 |   |-- consultas/
 |   |   |-- ConsultasScreen.kt
 |   |   |-- ConsultasViewModel.kt
+|   |-- citas/
+|   |   |-- CitasScreen.kt
+|   |   |-- CitasViewModel.kt
+|   |-- vacunas/
+|   |   |-- VacunasScreen.kt
+|   |   |-- VacunasViewModel.kt
 |   |-- resumen/
 |   |   |-- ResumenScreen.kt
 |   |   |-- ResumenViewModel.kt
@@ -224,6 +284,8 @@ com.duoc.mobile_01_android/
 |   |   |-- AppTopBar.kt
 |   |   |-- LoadingIndicator.kt
 |   |   |-- VeterinariaLogo.kt
+|   |   |-- SearchBar.kt
+|   |   |-- ErrorDisplay.kt
 |   |-- theme/
 |       |-- Color.kt
 |       |-- Theme.kt
@@ -245,6 +307,7 @@ com.duoc.mobile_01_android/
 |   |-- Constants.kt
 |   |-- ValidationUtils.kt
 |   |-- IntentUtils.kt
+|   |-- NotificationHelper.kt
 |
 |-- MainActivity.kt
 |-- DetalleConsultaActivity.kt
@@ -386,6 +449,20 @@ JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew connectedAndroidTest
 
 ---
 
+## Criterios de Evaluacion Cumplidos (EFT)
+
+| Criterio | Puntos | Estado |
+|----------|--------|--------|
+| CRUD + Organizacion (filtros, busqueda, categorias) | 15 | Completado |
+| Registro y Seguimiento (citas, historial, tiempo real) | 15 | Completado |
+| Notificaciones Automaticas (citas, vacunas) | 10 | Completado |
+| Interfaz de Usuario (intuitiva, elementos visuales) | 10 | Completado |
+| Animaciones y Efectos Visuales (fade in/out) | 10 | Completado |
+| Manejo de Errores (excepciones, estabilidad) | 10 | Completado |
+| Optimizacion (rendimiento, experiencia fluida) | 5 | Completado |
+
+---
+
 ## Licencia
 
 Este proyecto fue desarrollado con fines educativos para el curso PMY2201 - Desarrollo de Aplicaciones Moviles.
@@ -394,4 +471,4 @@ Este proyecto fue desarrollado con fines educativos para el curso PMY2201 - Desa
 
 ## Autor
 
-Desarrollado como parte de la evaluacion sumativa Semana 8: "Aplicando Android UI y conceptos adicionales".
+Desarrollado como Evaluacion Final Transversal (EFT) - Semana 9: "Sistema de Gestion Veterinaria".

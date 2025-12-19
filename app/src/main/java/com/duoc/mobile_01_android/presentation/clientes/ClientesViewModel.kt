@@ -32,16 +32,35 @@ class ClientesViewModel(
     private val _loadingMessage = MutableStateFlow("")
     val loadingMessage: StateFlow<String> = _loadingMessage.asStateFlow()
 
+    // Estado de error
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    // Estado de búsqueda
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
     /**
-     * Estado de la UI combinando clientes y sus mascotas.
+     * Estado de la UI combinando clientes y sus mascotas con filtrado de búsqueda.
      * StateFlow para reactividad con Compose.
      */
     val uiState: StateFlow<ClientesUiState> = combine(
         clienteRepository.getClientes(),
-        mascotaRepository.getMascotas()
-    ) { clientes, mascotas ->
-        // Mapear cada cliente con su conteo de mascotas
-        val clientesConMascotas = clientes.map { cliente ->
+        mascotaRepository.getMascotas(),
+        _searchQuery
+    ) { clientes, mascotas, query ->
+        // Filtrar clientes por nombre o email que contengan el query
+        val clientesFiltrados = if (query.isBlank()) {
+            clientes
+        } else {
+            clientes.filter { cliente ->
+                cliente.nombre.contains(query, ignoreCase = true) ||
+                cliente.email.contains(query, ignoreCase = true)
+            }
+        }
+
+        // Mapear cada cliente filtrado con su conteo de mascotas
+        val clientesConMascotas = clientesFiltrados.map { cliente ->
             val mascotasCount = mascotas.count { it.clienteId == cliente.id }
             ClienteConMascotas(cliente, mascotasCount)
         }
@@ -54,12 +73,30 @@ class ClientesViewModel(
 
     // ==================== Acciones de Usuario ====================
 
+    /**
+     * Limpia el mensaje de error actual.
+     * Se llama desde la UI cuando el usuario cierra el snackbar o diálogo de error.
+     */
+    fun clearError() {
+        _errorMessage.value = null
+    }
+
+    /**
+     * Actualiza el query de búsqueda.
+     * Automáticamente filtra la lista de clientes mediante combine().
+     */
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
+
     fun agregarCliente(cliente: Cliente) {
         viewModelScope.launch {
             _isLoading.value = true
             _loadingMessage.value = "Guardando cliente..."
             try {
                 clienteRepository.agregarCliente(cliente)
+            } catch (e: Exception) {
+                _errorMessage.value = "Error al guardar cliente: ${e.message ?: "Error desconocido"}"
             } finally {
                 _isLoading.value = false
             }
@@ -72,6 +109,8 @@ class ClientesViewModel(
             _loadingMessage.value = "Actualizando cliente..."
             try {
                 clienteRepository.editarCliente(cliente)
+            } catch (e: Exception) {
+                _errorMessage.value = "Error al actualizar cliente: ${e.message ?: "Error desconocido"}"
             } finally {
                 _isLoading.value = false
             }
@@ -84,6 +123,8 @@ class ClientesViewModel(
             _loadingMessage.value = "Eliminando cliente..."
             try {
                 clienteRepository.eliminarCliente(id)
+            } catch (e: Exception) {
+                _errorMessage.value = "Error al eliminar cliente: ${e.message ?: "Error desconocido"}"
             } finally {
                 _isLoading.value = false
             }

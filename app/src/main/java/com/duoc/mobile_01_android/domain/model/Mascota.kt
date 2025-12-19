@@ -8,6 +8,7 @@ data class Mascota(
     val id: Int = 0,
     val nombre: String = "",
     val especie: String = "",
+    val raza: String = "",
     val edad: Int = 0,
     val peso: Double = 0.0,
     val clienteId: Int = 0

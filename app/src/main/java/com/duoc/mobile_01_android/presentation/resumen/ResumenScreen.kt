@@ -48,8 +48,10 @@ import kotlinx.coroutines.delay
 @Composable
 fun ResumenScreen(
     viewModel: ResumenViewModel,
+    userRole: com.duoc.mobile_01_android.domain.model.Rol = com.duoc.mobile_01_android.domain.model.Rol.ADMIN,
     onNavigate: (String) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onLogout: () -> Unit = {}
 ) {
     var isVisible by remember { mutableStateOf(false) }
     var isGeneratingResumen by remember { mutableStateOf(true) }
@@ -68,8 +70,10 @@ fun ResumenScreen(
             AppTopBar(
                 title = "Resumen",
                 showBackButton = true,
+                userRole = userRole,
                 onBackClick = onBack,
-                onNavigate = onNavigate
+                onNavigate = onNavigate,
+                onLogout = onLogout
             )
         }
     ) { paddingValues ->

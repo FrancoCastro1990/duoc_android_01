@@ -37,6 +37,18 @@ class ConsultasViewModel(
     private val _loadingMessage = MutableStateFlow("")
     val loadingMessage: StateFlow<String> = _loadingMessage.asStateFlow()
 
+    // Estado de error
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    /**
+     * Limpia el mensaje de error actual.
+     * Se llama desde la UI cuando el usuario cierra el snackbar o diálogo de error.
+     */
+    fun clearError() {
+        _errorMessage.value = null
+    }
+
     /**
      * Estado de la UI combinando todas las entidades necesarias.
      */
@@ -76,6 +88,36 @@ class ConsultasViewModel(
                     medicamentos = medicamentos,
                     descripcion = descripcion
                 )
+            } catch (e: Exception) {
+                _errorMessage.value = "Error al crear consulta: ${e.message ?: "Error desconocido"}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun editarConsulta(consulta: Consulta) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _loadingMessage.value = "Actualizando consulta..."
+            try {
+                consultaRepository.editarConsulta(consulta)
+            } catch (e: Exception) {
+                _errorMessage.value = "Error al actualizar consulta: ${e.message ?: "Error desconocido"}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun eliminarConsulta(id: Int) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _loadingMessage.value = "Eliminando consulta..."
+            try {
+                consultaRepository.eliminarConsulta(id)
+            } catch (e: Exception) {
+                _errorMessage.value = "Error al eliminar consulta: ${e.message ?: "Error desconocido"}"
             } finally {
                 _isLoading.value = false
             }

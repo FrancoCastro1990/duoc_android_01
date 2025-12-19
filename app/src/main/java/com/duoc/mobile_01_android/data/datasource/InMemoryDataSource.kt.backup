@@ -6,9 +6,6 @@ import com.duoc.mobile_01_android.domain.model.Consulta
 import com.duoc.mobile_01_android.domain.model.EstadoCita
 import com.duoc.mobile_01_android.domain.model.Mascota
 import com.duoc.mobile_01_android.domain.model.Medicamento
-import com.duoc.mobile_01_android.domain.model.Rol
-import com.duoc.mobile_01_android.domain.model.SessionState
-import com.duoc.mobile_01_android.domain.model.Usuario
 import com.duoc.mobile_01_android.domain.model.Vacuna
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,7 +34,6 @@ object InMemoryDataSource {
     private val _medicamentos = MutableStateFlow<List<Medicamento>>(emptyList())
     private val _citas = MutableStateFlow<List<Cita>>(emptyList())
     private val _vacunas = MutableStateFlow<List<Vacuna>>(emptyList())
-    private val _currentSession = MutableStateFlow<SessionState>(SessionState.NotAuthenticated)
 
     // StateFlows públicos (inmutables) para exposición
     val clientes: StateFlow<List<Cliente>> = _clientes.asStateFlow()
@@ -46,7 +42,6 @@ object InMemoryDataSource {
     val medicamentos: StateFlow<List<Medicamento>> = _medicamentos.asStateFlow()
     val citas: StateFlow<List<Cita>> = _citas.asStateFlow()
     val vacunas: StateFlow<List<Vacuna>> = _vacunas.asStateFlow()
-    val currentSession: StateFlow<SessionState> = _currentSession.asStateFlow()
 
     init {
         // Inicializar medicamentos predefinidos con descuentos promocionales
@@ -105,16 +100,6 @@ object InMemoryDataSource {
         return nuevaConsulta
     }
 
-    fun editarConsulta(consulta: Consulta) {
-        _consultas.value = _consultas.value.map {
-            if (it.id == consulta.id) consulta else it
-        }
-    }
-
-    fun eliminarConsulta(id: Int) {
-        _consultas.value = _consultas.value.filter { it.id != id }
-    }
-
     // ==================== CRUD Citas ====================
 
     fun agregarCita(cita: Cita): Cita {
@@ -162,66 +147,10 @@ object InMemoryDataSource {
     fun getMedicamentoById(id: Int): Medicamento? {
         return _medicamentos.value.find { it.id == id }
     }
+}
 
-    // ==================== Authentication ====================
-
-    /**
-     * Credenciales hardcoded para autenticación.
-     * Usuario ADMIN: admin@vet.com / admin123
-     * Usuarios DUENO: email de clientes existentes / cliente123
-     */
-    private val adminUsuario = Usuario(
-        id = -1,
-        email = "admin@vet.com",
-        password = "admin123",
-        rol = Rol.ADMIN,
-        clienteId = null
-    )
-
-    /**
-     * Intenta autenticar un usuario con las credenciales proporcionadas.
-     * @return Usuario si las credenciales son válidas, null en caso contrario
-     */
-    fun login(email: String, password: String): Usuario? {
-        // Verificar si es el administrador
-        if (email.equals(adminUsuario.email, ignoreCase = true) && password == adminUsuario.password) {
-            val authenticatedUser = adminUsuario
-            _currentSession.value = SessionState.Authenticated(authenticatedUser)
-            return authenticatedUser
-        }
-
-        // Verificar si es un cliente existente
-        val cliente = _clientes.value.find { it.email.equals(email, ignoreCase = true) }
-        if (cliente != null && password == "cliente123") {
-            val authenticatedUser = Usuario(
-                id = cliente.id,
-                email = cliente.email,
-                password = "",  // No almacenar password en la sesión
-                rol = Rol.DUENO,
-                clienteId = cliente.id
-            )
-            _currentSession.value = SessionState.Authenticated(authenticatedUser)
-            return authenticatedUser
-        }
-
-        return null
-    }
-
-    /**
-     * Cierra la sesión del usuario actual.
-     */
-    fun logout() {
-        _currentSession.value = SessionState.NotAuthenticated
-    }
-
-    /**
-     * Verifica si existe un usuario con el email proporcionado.
-     * Usado para recuperación de contraseña simulada.
-     */
-    fun existeEmail(email: String): Boolean {
-        if (email.equals(adminUsuario.email, ignoreCase = true)) {
-            return true
-        }
-        return _clientes.value.any { it.email.equals(email, ignoreCase = true) }
+    // Authentication test functions - will be integrated properly
+    fun testAuthSetup() {
+        // Placeholder for auth functionality
     }
 }
